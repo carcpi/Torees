@@ -1,0 +1,192 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerified() && (
+        request.auth.token.email == 'alejandrocarcini@hotmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isOwner(uid) {
+      return isVerified() && request.auth.uid == uid;
+    }
+
+    function isValidTower(data) {
+      return data.keys().hasAll(['towerNumber', 'name', 'material', 'character', 'current_shots', 'damage_percent', 'status', 'wearTier', 'leanLevel', 'detachedBlocks', 'updatedAt'])
+        && data.keys().hasOnly(['towerNumber', 'name', 'material', 'character', 'current_shots', 'damage_percent', 'status', 'wearTier', 'leanLevel', 'detachedBlocks', 'winnerName', 'updatedAt'])
+        && data.towerNumber is int && data.towerNumber >= 1 && data.towerNumber <= 52
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
+        && data.material is string && data.material.size() >= 2 && data.material.size() <= 32 && data.material.matches('^[a-z_]+$')
+        && data.character is string && data.character.size() >= 2 && data.character.size() <= 32 && data.character.matches('^[a-z_]+$')
+        && data.current_shots is int && data.current_shots >= 0 && data.current_shots <= 1000000
+        && data.damage_percent is int && data.damage_percent >= 0 && data.damage_percent <= 100
+        && data.status is string && data.status in ['ACTIVA', 'DERRIBADA']
+        && data.wearTier is string && data.wearTier in ['INTACTA', 'AGRIETADA', 'MORDIDA', 'CRITICA', 'DERRIBADA']
+        && (data.leanLevel is int || data.leanLevel is float) && data.leanLevel >= -10 && data.leanLevel <= 10
+        && data.detachedBlocks is list && data.detachedBlocks.size() <= 20
+        && (data.detachedBlocks.size() == 0 || data.detachedBlocks[0] is int)
+        && (!('winnerName' in data) || (data.winnerName is string && data.winnerName.size() >= 1 && data.winnerName.size() <= 60))
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTowerSecret(data) {
+      return data.keys().hasAll(['towerId', 'target_shots', 'updatedAt'])
+        && data.keys().hasOnly(['towerId', 'target_shots', 'updatedAt'])
+        && isValidId(data.towerId) && data.towerId.size() <= 32
+        && data.target_shots is int && data.target_shots >= 1 && data.target_shots <= 1000000
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPlayer(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'shotsBalance', 'totalShotsFired', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'shotsBalance', 'totalShotsFired', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && data.shotsBalance is int && data.shotsBalance >= 0 && data.shotsBalance <= 100000
+        && data.totalShotsFired is int && data.totalShotsFired >= 0 && data.totalShotsFired <= 10000000
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWinner(data) {
+      return data.keys().hasAll(['uid', 'towerId', 'towerNumber', 'towerName', 'winnerName', 'prizeAmount', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'towerId', 'towerNumber', 'towerName', 'winnerName', 'prizeAmount', 'createdAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && isValidId(data.towerId) && data.towerId.size() <= 32
+        && data.towerNumber is int && data.towerNumber >= 1 && data.towerNumber <= 52
+        && data.towerName is string && data.towerName.size() >= 2 && data.towerName.size() <= 80
+        && data.winnerName is string && data.winnerName.size() >= 2 && data.winnerName.size() <= 60
+        && data.prizeAmount is int && data.prizeAmount == 1000
+        && data.createdAt is timestamp;
+    }
+
+    function isValidClaim(data) {
+      return data.keys().hasAll(['uid', 'towerId', 'towerNumber', 'winnerName', 'emailOrWallet', 'payoutMethod', 'status', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'towerId', 'towerNumber', 'winnerName', 'emailOrWallet', 'payoutMethod', 'status', 'createdAt'])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && isValidId(data.towerId) && data.towerId.size() <= 32
+        && data.towerNumber is int && data.towerNumber >= 1 && data.towerNumber <= 52
+        && data.winnerName is string && data.winnerName.size() >= 2 && data.winnerName.size() <= 60
+        && data.emailOrWallet is string && data.emailOrWallet.size() >= 4 && data.emailOrWallet.size() <= 120
+        && data.payoutMethod is string && data.payoutMethod in ['NOWPayments_USDT', 'NOWPayments_USDC', 'NOWPayments_SOL', 'NOWPayments_BTC', 'BankTransfer']
+        && data.status is string && data.status in ['PENDIENTE', 'VERIFICADO', 'PAGADO']
+        && data.createdAt is timestamp;
+    }
+
+    match /admins/{adminUid} {
+      allow get: if isValidId(adminUid) && (isOwner(adminUid) || isAdmin());
+      allow list: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    match /towers/{towerId} {
+      allow get: if isValidId(towerId) && towerId.size() <= 32;
+      allow list: if resource.data.status in ['ACTIVA', 'DERRIBADA'];
+      allow create: if isAdmin()
+        && isValidId(towerId) && towerId.size() <= 32
+        && isValidTower(incoming())
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(towerId) && towerId.size() <= 32
+        && isValidTower(incoming())
+        && incoming().towerNumber == existing().towerNumber
+        && incoming().updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /tower_secrets/{towerId} {
+      allow get: if isAdmin() && isValidId(towerId) && towerId.size() <= 32;
+      allow list: if isAdmin() && resource.data.target_shots >= 1;
+      allow create: if isAdmin()
+        && isValidId(towerId) && towerId.size() <= 32
+        && isValidTowerSecret(incoming())
+        && incoming().towerId == towerId
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(towerId) && towerId.size() <= 32
+        && isValidTowerSecret(incoming())
+        && incoming().towerId == existing().towerId
+        && incoming().updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /players/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isVerified() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if isOwner(userId)
+        && isValidId(userId)
+        && isValidPlayer(incoming())
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isValidPlayer(incoming())
+        && incoming().uid == existing().uid
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'shotsBalance', 'totalShotsFired', 'updatedAt']))
+        );
+      allow delete: if false;
+    }
+
+    match /winners/{winnerId} {
+      allow get: if isValidId(winnerId);
+      allow list: if resource.data.prizeAmount == 1000;
+      allow create: if isVerified()
+        && isValidId(winnerId)
+        && isValidWinner(incoming())
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/towers/$(incoming().towerId));
+      allow update, delete: if false;
+    }
+
+    match /claims/{claimId} {
+      allow get: if isValidId(claimId) && isVerified() && (existing().uid == request.auth.uid || isAdmin());
+      allow list: if isVerified() && (resource.data.uid == request.auth.uid || isAdmin());
+      allow create: if isVerified()
+        && isValidId(claimId)
+        && isValidClaim(incoming())
+        && incoming().status == 'PENDIENTE'
+        && incoming().createdAt == request.time
+        && exists(/databases/$(database)/documents/towers/$(incoming().towerId));
+      allow update: if isAdmin()
+        && isValidId(claimId)
+        && isValidClaim(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if false;
+    }
+
+    match /test/connection {
+      allow get: if true;
+    }
+  }
+}

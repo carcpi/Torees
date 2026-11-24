@@ -1,0 +1,222 @@
+{
+  "entities": {
+    "Tower": {
+      "title": "Tower",
+      "description": "Public state of one of the 50 arcade towers without exposing the secret target_shots threshold.",
+      "type": "object",
+      "properties": {
+        "towerNumber": {
+          "type": "integer",
+          "description": "Tower index from 1 to 52"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "Unique display name of the tower"
+        },
+        "material": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 32,
+          "pattern": "^[a-z_]+$"
+        },
+        "character": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 32,
+          "pattern": "^[a-z_]+$"
+        },
+        "current_shots": {
+          "type": "integer",
+          "description": "Current accumulated shots on this tower"
+        },
+        "damage_percent": {
+          "type": "integer",
+          "description": "Coarse quantized damage percentage (0-100) safe for public display"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ACTIVA", "DERRIBADA"]
+        },
+        "wearTier": {
+          "type": "string",
+          "enum": ["INTACTA", "AGRIETADA", "MORDIDA", "CRITICA", "DERRIBADA"]
+        },
+        "leanLevel": {
+          "type": "number"
+        },
+        "detachedBlocks": {
+          "type": "array"
+        },
+        "winnerName": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["towerNumber", "name", "material", "character", "current_shots", "damage_percent", "status", "wearTier", "leanLevel", "detachedBlocks", "updatedAt"]
+    },
+    "TowerSecret": {
+      "title": "TowerSecret",
+      "description": "Admin-only document holding the secret target_shots collapse threshold for a tower.",
+      "type": "object",
+      "properties": {
+        "towerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "target_shots": {
+          "type": "integer",
+          "description": "Secret threshold of shots required to collapse the tower"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["towerId", "target_shots", "updatedAt"]
+    },
+    "PlayerProfile": {
+      "title": "PlayerProfile",
+      "description": "Player shot balance and stats bound to their authenticated UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "shotsBalance": {
+          "type": "integer"
+        },
+        "totalShotsFired": {
+          "type": "integer"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "shotsBalance", "totalShotsFired", "updatedAt"]
+    },
+    "WinnerEntry": {
+      "title": "WinnerEntry",
+      "description": "Public recent winner entry for the lobby ticker without PII.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "towerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "towerNumber": {
+          "type": "integer"
+        },
+        "towerName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "winnerName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "prizeAmount": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "towerId", "towerNumber", "towerName", "winnerName", "prizeAmount", "createdAt"]
+    },
+    "PrizeClaim": {
+      "title": "PrizeClaim",
+      "description": "Private prize claim containing payout contact details, strictly isolated to owner and admin.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "towerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "towerNumber": {
+          "type": "integer"
+        },
+        "winnerName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60
+        },
+        "emailOrWallet": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 120
+        },
+        "payoutMethod": {
+          "type": "string",
+          "enum": ["NOWPayments_USDT", "NOWPayments_USDC", "NOWPayments_SOL", "NOWPayments_BTC", "BankTransfer"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["PENDIENTE", "VERIFICADO", "PAGADO"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "towerId", "towerNumber", "winnerName", "emailOrWallet", "payoutMethod", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/towers/{towerId}": {
+      "schema": { "$ref": "#/entities/Tower" },
+      "description": "Public state of all 52 towers (current_shots, damage_percent, status). Never stores target_shots."
+    },
+    "/tower_secrets/{towerId}": {
+      "schema": { "$ref": "#/entities/TowerSecret" },
+      "description": "Admin-only collection storing secret target_shots thresholds for each tower."
+    },
+    "/players/{userId}": {
+      "schema": { "$ref": "#/entities/PlayerProfile" },
+      "description": "Player shot balances and lifetime shot statistics."
+    },
+    "/winners/{winnerId}": {
+      "schema": { "$ref": "#/entities/WinnerEntry" },
+      "description": "Public recent winner announcements displayed in the top arcade ticker."
+    },
+    "/claims/{claimId}": {
+      "schema": { "$ref": "#/entities/PrizeClaim" },
+      "description": "Private prize claim submissions containing email or wallet payout addresses."
+    }
+  }
+}

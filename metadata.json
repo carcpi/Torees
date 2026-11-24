@@ -1,0 +1,6 @@
+{
+  "name": "TOWER DROP 1000",
+  "description": "Juego arcade multijugador de demolición con física 2D en tiempo real, 50 torres únicas con personajes animados y premios de $1,000 USD.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
